@@ -298,7 +298,11 @@ function App() {
                     className="max-w-xs max-h-72 rounded-lg shadow-xl border-4 border-gray-700 object-contain"
                   />
                   <button
-                    onClick={() => setUploadedImage(null)}
+                    onClick={() => {
+                      setUploadedImage(null);
+                      setRecognitionResults(null);
+                      fileInputRef.current.value = null;
+                    }}
                     className="absolute top-2 right-2 bg-red-600 text-white p-2 rounded-full 
                              hover:bg-red-700 transition-colors"
                   >
