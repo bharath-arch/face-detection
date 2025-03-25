@@ -1,0 +1,385 @@
+// import React, { useEffect, useRef, useState } from 'react';
+// import * as faceapi from 'face-api.js';
+// import './App.css';
+
+// function App() {
+//   const videoRef = useRef(null);
+//   const canvasRef = useRef(null);
+//   const [dimensions, setDimensions] = useState({ width: 940, height: 720 });
+
+//   const startWebcam = () => {
+//     navigator.mediaDevices.getUserMedia({
+//       video: { width: 940, height: 720 }
+//     }).then((stream) => {
+//       if (videoRef.current) {
+//         videoRef.current.srcObject = stream;
+//         videoRef.current.play();
+//       }
+//     }).catch((err) => {
+//       console.error("Error accessing webcam:", err);
+//     });
+//   };
+
+//   const loadModels = () => {
+//     Promise.all([
+//       faceapi.nets.tinyFaceDetector.loadFromUri('/models'),
+//       faceapi.nets.faceLandmark68Net.loadFromUri('/models'),
+//       faceapi.nets.faceRecognitionNet.loadFromUri('/models'),
+//       faceapi.nets.faceExpressionNet.loadFromUri('/models'),
+//       faceapi.nets.ageGenderNet.loadFromUri('/models')
+//     ]).then(() => {
+//       console.log("Models loaded successfully");
+//       faceDetect();
+//     }).catch((err) => {
+//       console.error("Error loading models:", err);
+//     });
+//   };
+
+//   const faceDetect = () => {
+//     const video = videoRef.current;
+//     const canvas = canvasRef.current;
+
+//     if (!video || !canvas) return;
+
+//     // Ensure canvas matches video dimensions
+//     canvas.width = video.videoWidth || 940;
+//     canvas.height = video.videoHeight || 720;
+
+//     const displaySize = { 
+//       width: canvas.width, 
+//       height: canvas.height 
+//     };
+
+//     // Create a container to match video positioning
+//     const container = canvas.parentElement;
+//     if (container) {
+//       container.style.position = 'relative';
+//       canvas.style.position = 'absolute';
+//       canvas.style.top = '0';
+//       canvas.style.left = '0';
+//     }
+
+//     const intervalId = setInterval(async () => {
+//       try {
+//         // Detect faces with more precise options
+//         const detections = await faceapi
+//           .detectAllFaces(
+//             video, 
+//             new faceapi.TinyFaceDetectorOptions({ 
+//               inputSize: 416, 
+//               scoreThreshold: 0.5 
+//             })
+//           )
+//           .withFaceLandmarks()
+//           .withFaceExpressions()
+//           .withAgeAndGender();
+
+//         // Clear previous drawings
+//         const ctx = canvas.getContext('2d');
+//         ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+//         // Resize and draw detections
+//         const resizedDetections = faceapi.resizeResults(detections, displaySize);
+
+//         // Draw face detections
+//         faceapi.draw.drawDetections(canvas, resizedDetections);
+        
+//         // Draw facial landmarks
+//         faceapi.draw.drawFaceLandmarks(canvas, resizedDetections);
+        
+//         // Draw facial expressions
+//         faceapi.draw.drawFaceExpressions(canvas, resizedDetections);
+
+//         // Optional: Draw additional information
+//         resizedDetections.forEach(detection => {
+//           const box = detection.detection.box;
+//           const ctx = canvas.getContext('2d');
+          
+//           // Draw age and gender text
+//           if (detection.age && detection.gender) {
+//             ctx.fillStyle = 'white';
+//             ctx.font = '16px Arial';
+//             ctx.fillText(
+//               `Age: ${Math.round(detection.age)} | ${detection.gender}`, 
+//               box.x, 
+//               box.y - 10
+//             );
+//           }
+//         });
+
+//       } catch (err) {
+//         console.error("Face detection error:", err);
+//         clearInterval(intervalId);
+//       }
+//     }, 500); // Reduced interval for more frequent updates
+
+//     // Cleanup
+//     return () => clearInterval(intervalId);
+//   };
+
+//   useEffect(() => {
+//     startWebcam();
+    
+//     const handleCanPlay = () => {
+//       loadModels();
+//       videoRef.current?.removeEventListener('canplay', handleCanPlay);
+//     };
+
+//     videoRef.current?.addEventListener('canplay', handleCanPlay);
+
+//     return () => {
+//       videoRef.current?.removeEventListener('canplay', handleCanPlay);
+//     };
+//   }, []);
+
+//   return (
+//     <div className="container" style={{ position: 'relative', width: 940, height: 720 }}>
+//       <video 
+//         ref={videoRef} 
+//         width="940" 
+//         height="720" 
+//         style={{ position: 'absolute', top: 0, left: 0 }}
+//         autoPlay 
+//         muted 
+//         playsInline
+//       />
+//       <canvas 
+//         ref={canvasRef} 
+//         style={{ 
+//           position: 'absolute', 
+//           top: 0, 
+//           left: 0, 
+//           zIndex: 10 
+//         }}
+//       />
+//     </div>
+//   );
+// }
+
+// export default App;
+
+import React, { useEffect, useRef, useState } from 'react';
+import * as faceapi from 'face-api.js';
+import './App.css';
+
+function App() {
+  const videoRef = useRef(null);
+  const canvasRef = useRef(null);
+  const [modelsLoaded, setModelsLoaded] = useState(false);
+  const [captureMode, setCaptureMode] = useState({
+    detection: false,
+    landmarks: false,
+    expressions: false,
+    ageGender: false
+  });
+
+  const startWebcam = () => {
+    navigator.mediaDevices.getUserMedia({
+      video: { width: 940, height: 720 }
+    }).then((stream) => {
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.play();
+      }
+    }).catch((err) => {
+      console.error("Error accessing webcam:", err);
+    });
+  };
+
+  const loadModels = () => {
+    Promise.all([
+      faceapi.nets.tinyFaceDetector.loadFromUri('/models'),
+      faceapi.nets.faceLandmark68Net.loadFromUri('/models'),
+      faceapi.nets.faceRecognitionNet.loadFromUri('/models'),
+      faceapi.nets.faceExpressionNet.loadFromUri('/models'),
+      faceapi.nets.ageGenderNet.loadFromUri('/models')
+    ]).then(() => {
+      console.log("Models loaded successfully");
+      setModelsLoaded(true);
+    }).catch((err) => {
+      console.error("Error loading models:", err);
+    });
+  };
+
+  const toggleFeature = (feature) => {
+    setCaptureMode(prev => ({
+      ...prev,
+      [feature]: !prev[feature]
+    }));
+  };
+
+  const detectFaces = () => {
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+
+    if (!video || !canvas || !modelsLoaded) return;
+
+    // Ensure canvas matches video dimensions
+    canvas.width = video.videoWidth || 940;
+    canvas.height = video.videoHeight || 720;
+
+    const displaySize = { 
+      width: canvas.width, 
+      height: canvas.height 
+    };
+
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    const detectAndDraw = async () => {
+      try {
+        const detections = await faceapi
+          .detectAllFaces(
+            video, 
+            new faceapi.TinyFaceDetectorOptions({ 
+              inputSize: 416, 
+              scoreThreshold: 0.5 
+            })
+          )
+          .withFaceLandmarks()
+          .withFaceExpressions()
+          .withAgeAndGender();
+
+        const resizedDetections = faceapi.resizeResults(detections, displaySize);
+
+        // Conditional drawing based on selected modes
+        if (captureMode.detection) {
+          faceapi.draw.drawDetections(canvas, resizedDetections);
+        }
+
+        if (captureMode.landmarks) {
+          faceapi.draw.drawFaceLandmarks(canvas, resizedDetections);
+        }
+
+        if (captureMode.expressions) {
+          faceapi.draw.drawFaceExpressions(canvas, resizedDetections);
+        }
+
+        if (captureMode.ageGender) {
+          resizedDetections.forEach(detection => {
+            const box = detection.detection.box;
+            ctx.fillStyle = 'white';
+            ctx.font = '16px Arial';
+            ctx.fillText(
+              `Age: ${Math.round(detection.age)} | ${detection.gender}`, 
+              box.x, 
+              box.y - 10
+            );
+          });
+        }
+      } catch (err) {
+        console.error("Face detection error:", err);
+      }
+    };
+
+    detectAndDraw();
+  };
+
+  useEffect(() => {
+    startWebcam();
+    loadModels();
+  }, []);
+
+  useEffect(() => {
+    if (Object.values(captureMode).some(mode => mode)) {
+      const intervalId = setInterval(detectFaces, 500);
+      return () => clearInterval(intervalId);
+    }
+  }, [captureMode, modelsLoaded]);
+
+  return (
+    <div className="container" style={{ 
+      position: 'relative', 
+      width: 940, 
+      height: 820,
+      textAlign: 'center'
+    }}>
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        marginBottom: '20px' 
+      }}>
+        <button 
+          onClick={() => toggleFeature('detection')}
+          style={{ 
+            margin: '0 10px', 
+            backgroundColor: captureMode.detection ? 'green' : 'gray',
+            color: 'white',
+            padding: '10px',
+            border: 'none',
+            borderRadius: '5px'
+          }}
+        >
+          {captureMode.detection ? 'Disable' : 'Show'} Face Detection
+        </button>
+
+        <button 
+          onClick={() => toggleFeature('landmarks')}
+          style={{ 
+            margin: '0 10px', 
+            backgroundColor: captureMode.landmarks ? 'green' : 'gray',
+            color: 'white',
+            padding: '10px',
+            border: 'none',
+            borderRadius: '5px'
+          }}
+        >
+          {captureMode.landmarks ? 'Disable' : 'Show'} Facial Landmarks
+        </button>
+
+        <button 
+          onClick={() => toggleFeature('expressions')}
+          style={{ 
+            margin: '0 10px', 
+            backgroundColor: captureMode.expressions ? 'green' : 'gray',
+            color: 'white',
+            padding: '10px',
+            border: 'none',
+            borderRadius: '5px'
+          }}
+        >
+          {captureMode.expressions ? 'Disable' : 'Show'} Face Expressions
+        </button>
+
+        <button 
+          onClick={() => toggleFeature('ageGender')}
+          style={{ 
+            margin: '0 10px', 
+            backgroundColor: captureMode.ageGender ? 'green' : 'gray',
+            color: 'white',
+            padding: '10px',
+            border: 'none',
+            borderRadius: '5px'
+          }}
+        >
+          {captureMode.ageGender ? 'Disable' : 'Show'} Age & Gender
+        </button>
+      </div>
+
+      <video 
+        ref={videoRef} 
+        width="940" 
+        height="720" 
+        style={{ 
+          position: 'absolute', 
+          top: 80, 
+          left: 0 
+        }}
+        autoPlay 
+        muted 
+        playsInline
+      />
+      <canvas 
+        ref={canvasRef} 
+        style={{ 
+          position: 'absolute', 
+          top: 80, 
+          left: 0, 
+          zIndex: 10 
+        }}
+      />
+    </div>
+  );
+}
+
+export default App;
